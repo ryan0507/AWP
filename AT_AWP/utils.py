@@ -3,6 +3,7 @@ from collections import namedtuple
 import torch
 from torch import nn
 import torchvision
+from denormalize import denormalize
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,11 +24,17 @@ def normalise(x, mean=cifar10_mean, std=cifar10_std):
     x *= 1.0/(255*std)
     return x
 
-def pad(x, border=4):
-    return np.pad(x, [(0, 0), (border, border), (border, border), (0, 0)], mode='reflect')
+def pad(x, border=4, type = 'cifar10'):
+    if type == 'cifar10':
+        return np.pad(x, [(0, 0), (border, border), (border, border), (0, 0)], mode='reflect')
+    elif type == 'di':
+        return np.pad(x, [(0, 0), (0,0), (border, border), (border, border)], mode='reflect')
 
-def transpose(x, source='NHWC', target='NCHW'):
-    return x.transpose([source.index(d) for d in target]) 
+def transpose(x, source='NHWC', target='NCHW', type ='cifar10'):
+    if type == 'cifar10':
+        return x.transpose([source.index(d) for d in target]) 
+    elif type =='di':
+        return x
 
 #####################
 ## data augmentation
@@ -99,6 +106,19 @@ def cifar10(root):
         'test': {'data': test_set.data, 'labels': test_set.targets}
     }
 
+def deepinversion(root):
+    di_data_root = "/dataset/DI_dataset/wrn28_10_cifar10_standard.pt"
+    train_set = torchvision.datasets.CIFAR10(root=root, train=True, download=True)
+    test_set = torchvision.datasets.CIFAR10(root=root, train=False, download=True)
+    di_dataset = torch.load(di_data_root)
+    di_dataset.transform = denormalize('cifar10')
+
+    return {
+        'train': {'data': di_dataset.data, 'labels': di_dataset.targets},
+        'test': {'data': test_set.data, 'labels': test_set.targets},
+        
+    }
+
 #####################
 ## data loading
 #####################
@@ -119,3 +139,6 @@ class Batches():
     
     def __len__(self): 
         return len(self.dataloader)
+
+#cifar10('../cifar-data')
+#deepinversion("/dataset/DI_dataset/wrn28_10_cifar10_standard.pt")

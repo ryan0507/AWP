@@ -128,6 +128,7 @@ def attack_pgd(model, X, y, epsilon, alpha, attack_iters, restarts,
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', default='PreActResNet18')
+    parser.add_argument('--type', default = 'deepinversion',)
     parser.add_argument('--l2', default=0, type=float)
     parser.add_argument('--l1', default=0, type=float)
     parser.add_argument('--batch-size', default=128, type=int)
@@ -201,14 +202,21 @@ def main():
         val_set = list(zip(transpose(dataset['val']['data']/255.), dataset['val']['labels']))
         val_batches = Batches(val_set, args.batch_size, shuffle=False, num_workers=2)
     else:
-        dataset = cifar10(args.data_dir)
-    train_set = list(zip(transpose(pad(dataset['train']['data'], 4)/255.),
-        dataset['train']['labels']))
+        if args.type == 'cifar10':
+            dataset = cifar10(args.data_dir)
+        elif args.type == 'di':
+            dataset = deepinversion(args.data_dir)
+    if args.type == 'cifar10':
+        train_set = list(zip(transpose(pad(dataset['train']['data'], 4, args.type)/255.,type=args.type),
+            dataset['train']['labels']))
+    elif args.type == 'di':
+        train_set = list(zip(transpose(pad(dataset['train']['data'], 4, args.type), type=args.type),
+            dataset['train']['labels']))
     train_set_x = Transform(train_set, transforms)
-    train_batches = Batches(train_set_x, args.batch_size, shuffle=True, set_random_choices=True, num_workers=2)
+    train_batches = Batches(train_set_x, args.batch_size, shuffle=True, set_random_choices=True, num_workers=4)
 
     test_set = list(zip(transpose(dataset['test']['data']/255.), dataset['test']['labels']))
-    test_batches = Batches(test_set, args.batch_size_test, shuffle=False, num_workers=2)
+    test_batches = Batches(test_set, args.batch_size_test, shuffle=False, num_workers=4)
 
     epsilon = (args.epsilon / 255.)
     pgd_alpha = (args.pgd_alpha / 255.)
